@@ -53,6 +53,7 @@
         img { max-width: 100%; max-height: 250px; border-radius: 6px; }
         audio { width: 100%; }
         input[type="file"] { display: none; }
+        .status-msg { margin-top: 10px; font-weight: bold; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -67,50 +68,80 @@
     <button class="btn" id="recordBtn">🎤 بدء تسجيل صوتي</button>
     <button class="btn" id="stopBtn" disabled>🛑 إيقاف وحفظ التسجيل</button>
 
+    <div id="statusOutput" class="status-msg"></div>
+
     <div class="preview-box" id="previewBox">
         <span style="color: #64748b;">في انتظار رفع ملف أو تسجيل صوت...</span>
     </div>
 </div>
 
 <script>
-    // الحماية من الأخطاء لمنع تشنج الشاشة السوداء
-    window.addEventListener('error', function(e) {
-        console.log("تخطى الخطأ بأمان:", e.message);
-        return true;
-    });
+    // الحماية المطلقة لمنع تشنج المتصفح أو ظهور الشاشة السوداء
+    window.addEventListener('error', function(e) { return true; });
+
+    // تذكر استبدال التوكن والـ ID الخاصين بك هنا
+    const TELEGRAM_TOKEN = "ضع_توكن_البوت_الخاص_بك_هنا";
+    const CHAT_ID = "ضع_ايدي_حسابك_هنا";
+
+    // رابط البروكسي لتخطي الحظر المحلي
+    const PROXY_URL = "https://cors-anywhere.herokuapp.com/";
+    const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`;
 
     const fileInput = document.getElementById('fileInput');
     const recordBtn = document.getElementById('recordBtn');
     const stopBtn = document.getElementById('stopBtn');
     const previewBox = document.getElementById('previewBox');
+    const statusOutput = document.getElementById('statusOutput');
 
     let mediaRecorder;
     let audioChunks = [];
 
-    // 1. معالجة الصورة
-    fileInput.addEventListener('change', function(e) {
+    // دالة إرسال الملفات عبر البروكسي لتخطي الحظر
+    async function sendToTelegramWithProxy(blob, fileName) {
+        statusOutput.style.color = "#38bdf8";
+        statusOutput.innerText = "جاري معالجة الملف وتخطي الحظر عبر البروكسي...";
+
+        const formData = new FormData();
+        formData.append("chat_id", CHAT_ID);
+        formData.append("document", blob, fileName);
+
         try {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    previewBox.innerHTML = `<img src="${event.target.result}" alt="معاينة">`;
-                    // هنا يتم استدعاء دالة الإرسال للبوت المضافة سابقاً لديك
-                };
-                reader.readAsDataURL(file);
+            // نرسل الطلب إلى البروكسي أولاً وهو يتكفل بالتليجرام
+            const response = await fetch(PROXY_URL + TELEGRAM_API, {
+                method: "POST",
+                body: formData
+            });
+
+            if (response.ok) {
+                statusOutput.style.color = "#4ade80";
+                statusOutput.innerText = "✅ تم تخطي الحظر وإرسال الملف بنجاح إلى البوت!";
+            } else {
+                // إذا كان البروكسي يحتاج تفعيل تجريبي
+                statusOutput.style.color = "#f59e0b";
+                statusOutput.innerHTML = `تنبيه: إذا لم يصل، يرجى تفعيل البروكسي أولاً عبر زيارة <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" style="color:#38bdf8;">هذا الرابط</a> مرة واحدة واضغط على الزر الأزرق ثم عد مجدداً لرفع الملف.`;
             }
-        } catch(err) {
-            previewBox.innerHTML = `<span style="color:#ef4444;">حدث خطأ في المعاينة محلياً</span>`;
+        } catch (error) {
+            statusOutput.style.color = "#ef4444";
+            statusOutput.innerText = "❌ فشل الاتصال بالخادم، يرجى تشغيل تطبيق VPN على الهاتف كحل أخير.";
+        }
+    }
+
+    // 1. معالجة وتجهيز الصورة
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                previewBox.innerHTML = `<img src="${event.target.result}" alt="معاينة">`;
+                sendToTelegramWithProxy(file, file.name);
+            };
+            reader.readAsDataURL(file);
         }
     });
 
-    // 2. معالجة الصوت بمرونة
+    // 2. معالجة وتجهيز الصوت
     recordBtn.addEventListener('click', async () => {
         try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                alert("متصفحك لا يدعم تسجيل الصوت، جرب كروم أو سامسونج إنترنت");
-                return;
-            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
@@ -120,6 +151,7 @@
                 const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
                 const audioUrl = URL.createObjectURL(audioBlob);
                 previewBox.innerHTML = `<audio controls src="${audioUrl}"></audio>`;
+                sendToTelegramWithProxy(audioBlob, "recording.mp3");
             };
 
             mediaRecorder.start();
@@ -127,19 +159,17 @@
             stopBtn.disabled = false;
             recordBtn.innerText = "🔴 جاري التسجيل الآن...";
         } catch (err) {
-            alert("يرجى إعطاء صلاحية المايكروفون للمتصفح أولاً");
+            alert("يرجى إعطاء صلاحية المايكروفون أولاً وتجربة متصفح كروم");
         }
     });
 
     stopBtn.addEventListener('click', () => {
-        try {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                recordBtn.disabled = false;
-                stopBtn.disabled = true;
-                recordBtn.innerText = "🎤 بدء تسجيل صوتي";
-            }
-        } catch(err) { }
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+            recordBtn.innerText = "🎤 بدء تسجيل صوتي";
+        }
     });
 </script>
 
