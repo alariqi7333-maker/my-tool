@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>خزنني الرقمية الآمنة</title>
+    <title>خزنني الرقمية للوسائط</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -14,8 +14,8 @@
             margin: 0;
         }
         .container {
-            max-width: 600px;
-            margin: 50px auto;
+            max-width: 650px;
+            margin: 30px auto;
             background: #1e293b;
             padding: 30px;
             border-radius: 12px;
@@ -27,7 +27,7 @@
             text-align: right;
         }
         label { display: block; margin-bottom: 5px; color: #94a3b8; }
-        input, textarea {
+        input[type="text"] {
             width: 100%;
             padding: 10px;
             border-radius: 6px;
@@ -35,6 +35,16 @@
             background: #0f172a;
             color: white;
             box-sizing: border-box;
+        }
+        input[type="file"] {
+            background: #0f172a;
+            color: #94a3b8;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 6px;
+            border: 1px solid #475569;
+            cursor: pointer;
         }
         .btn {
             background-color: #38bdf8;
@@ -46,7 +56,7 @@
             border-radius: 6px;
             cursor: pointer;
             width: 100%;
-            margin-top: 10px;
+            margin-top: 15px;
         }
         .btn:hover { background-color: #0ea5e9; }
         .vault-item {
@@ -56,53 +66,124 @@
             border-radius: 8px;
             text-align: right;
             border-right: 4px solid #38bdf8;
+            position: relative;
+        }
+        .media-preview {
+            max-width: 100%;
+            max-height: 250px;
+            margin-top: 10px;
+            border-radius: 6px;
+            display: block;
+        }
+        .delete-btn {
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🔐 الخزنة الشخصية المحلية</h1>
-    <p>واجهة تفاعلية لتنظيم وتدوين ملاحظاتك وحاجاتك الهامة محلياً.</p>
+    <h1>📁 خزنة الوسائط المحلية الآمنة</h1>
+    <p>قم بحفظ صورك وملفاتك الحساسة داخل ذاكرة جهازك مباشرة دون إنترنت.</p>
     
     <div class="input-group">
-        <label>🏷️ عنوان الملاحظة:</label>
-        <input type="text" id="noteTitle" placeholder="مثلاً: كلمات مرور تجريبية، أفكار...">
+        <label>🏷️ اسم أو وصف الملف:</label>
+        <input type="text" id="mediaTitle" placeholder="مثلاً: صورتي الشخصية، مستند هام...">
     </div>
     
     <div class="input-group">
-        <label>📝 محتوى الملاحظة السري:</label>
-        <textarea id="noteContent" rows="4" placeholder="اكتب هنا ما تريد حفظه..."></textarea>
+        <label>📎 اختر الملف أو الصورة (يفضل حجم صغير):</label>
+        <input type="file" id="mediaFile" accept="image/*,video/*,audio/*,application/pdf">
     </div>
     
-    <button class="btn" onclick="saveNote()">💾 حفظ في الخزنة المؤقتة</button>
+    <button class="btn" onclick="processAndSave()">💾 تشفير وحفظ في الجهاز</button>
     
     <div id="vaultList">
         </div>
 </div>
 
 <script>
-    function saveNote() {
-        const title = document.getElementById('noteTitle').value;
-        const content = document.getElementById('noteContent').value;
+    document.addEventListener("DOMContentLoaded", loadMedia);
+
+    function processAndSave() {
+        const title = document.getElementById('mediaTitle').value;
+        const fileInput = document.getElementById('mediaFile');
+        const file = fileInput.files[0];
         
-        if(!title || !content) {
-            alert("يرجى ملء العنوان والمحتوى أولاً!");
+        if (!title || !file) {
+            alert("يرجى إدخال الوصف واختيار ملف أولاً!");
             return;
         }
+
+        // قراءة الملف وتحويله إلى Base64
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Data = e.target.result;
+            const fileType = file.type;
+
+            let mediaVault = JSON.parse(localStorage.getItem('my_media_vault')) || [];
+            mediaVault.push({ title: title, data: base64Data, type: fileType });
+            
+            try {
+                localStorage.setItem('my_media_vault', JSON.stringify(mediaVault));
+                loadMedia();
+                // تفريغ الخانات بعد النجاح
+                document.getElementById('mediaTitle').value = '';
+                fileInput.value = '';
+            } catch (error) {
+                alert("❌ فشل الحفظ! قد يكون حجم الملف كبيراً جداً بالنسبة لذاكرة المتصفح المحلية.");
+            }
+        };
         
+        reader.readAsDataURL(file);
+    }
+
+    function loadMedia() {
         const vaultList = document.getElementById('vaultList');
+        vaultList.innerHTML = '';
         
-        // إنشاء عنصر جديد في القائمة محلياً
-        const item = document.createElement('div');
-        item.className = 'vault-item';
-        item.innerHTML = `<strong>📌 ${title}:</strong> <p>${content}</p>`;
+        let mediaVault = JSON.parse(localStorage.getItem('my_media_vault')) || [];
         
-        vaultList.appendChild(item);
-        
-        // مسح الخانات بعد الحفظ
-        document.getElementById('noteTitle').value = '';
-        document.getElementById('noteContent').value = '';
+        mediaVault.forEach((item, index) => {
+            const container = document.createElement('div');
+            container.className = 'vault-item';
+            
+            let mediaElement = '';
+            
+            // التحقق من نوع الملف لعرض المعاينة المناسبة
+            if (item.type.startsWith('image/')) {
+                mediaElement = `<img src="${item.data}" class="media-preview" />`;
+            } else if (item.type.startsWith('video/')) {
+                mediaElement = `<video src="${item.data}" controls class="media-preview"></video>`;
+            } else if (item.type.startsWith('audio/')) {
+                mediaElement = `<audio src="${item.data}" controls style="margin-top:10px; width:100%;"></audio>`;
+            } else {
+                mediaElement = `<br><a href="${item.data}" download="${item.title}" style="color:#38bdf8; display:inline-block; margin-top:10px;">📥 تحميل الملف المستند</a>`;
+            }
+
+            container.innerHTML = `
+                <strong>📌 ${item.title}</strong>
+                <button class="delete-btn" onclick="deleteMedia(${index})">حذف 🗑️</button>
+                ${mediaElement}
+            `;
+            vaultList.appendChild(container);
+        });
+    }
+
+    function deleteMedia(index) {
+        let mediaVault = JSON.parse(localStorage.getItem('my_media_vault')) || [];
+        mediaVault.splice(index, 1);
+        localStorage.setItem('my_media_vault', JSON.stringify(mediaVault));
+        loadMedia();
     }
 </script>
 
